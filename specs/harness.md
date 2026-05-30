@@ -38,3 +38,4 @@
 | 2026-05-30 | タップカウンター初期実装（docs/index.html） |
 | 2026-05-30 | index.html をルートから docs/ に移動（GitHub Pages を /docs に変更） |
 | 2026-05-30 | specs/ ディレクトリ作成、CLAUDE.md 追加 |
+| 2026-05-30 | 熊スプライト・チンテロップ演出を docs/index.html に追加。docs/assets/ に素材配置 |
