@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Tap Counter</title>
+  <title>タップカウンター</title>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -20,7 +20,7 @@
 
     body {
       background: #0f0f1a;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif;
       user-select: none;
       -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
@@ -36,30 +36,30 @@
       transition: background 0.3s;
     }
 
-    /* ── チンテロップ（熊より奥） ── */
+    /* ── チンテロップ（熊の前面） ── */
     #chin {
       position: fixed;
       left: 50%;
       top: 50%;
-      width: clamp(160px, 48vw, 300px);
+      width: clamp(200px, 58vw, 380px);
       aspect-ratio: 1408 / 768;
       background-image: url('assets/chin.png');
       background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
       pointer-events: none;
-      z-index: 1;
+      z-index: 5;
       opacity: 0;
-      transform: translate(-50%, -55%) scale(0.6);
+      transform: translate(-50%, -60%) scale(0.6);
     }
     @keyframes chin-pop {
-      0%   { opacity: 0;   transform: translate(-50%, -55%) scale(0.5); }
-      18%  { opacity: 1;   transform: translate(-50%, -55%) scale(1.15); }
-      45%  { opacity: 0.9; transform: translate(-50%, -55%) scale(1.0); }
-      100% { opacity: 0;   transform: translate(-50%, -55%) scale(1.35); }
+      0%   { opacity: 0;   transform: translate(-50%, -60%) scale(0.4); }
+      18%  { opacity: 1;   transform: translate(-50%, -60%) scale(1.15); }
+      45%  { opacity: 0.95; transform: translate(-50%, -60%) scale(1.0); }
+      100% { opacity: 0;   transform: translate(-50%, -60%) scale(1.4); }
     }
     #chin.pop {
-      animation: chin-pop var(--chin-dur) ease-out forwards;
+      animation: chin-pop 650ms ease-out forwards;
     }
 
     /* ── タップ領域（画面全体） ── */
@@ -80,17 +80,19 @@
     #label {
       font-size: clamp(13px, 2.8vw, 17px);
       color: rgba(255, 255, 255, 0.35);
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
+      letter-spacing: 0.15em;
       pointer-events: none;
     }
 
     /* ── 熊スプライト ── */
     #bear {
-      width: clamp(110px, 32vw, 200px);
-      /* height は JS で aspect-ratio に合わせてセット */
+      /* CSS aspect-ratio でheightを自動計算 → JS依存を排除 */
+      width: clamp(120px, 34vw, 210px);
+      aspect-ratio: 352 / 384;
       background-image: url('assets/bear-sprite.png');
       background-repeat: no-repeat;
+      background-size: 400% 200%; /* COLS×ROWS のフォールバック */
+      background-position: 0 0;
       pointer-events: none;
       image-rendering: auto;
     }
@@ -105,7 +107,6 @@
         0 0 40px rgba(120, 80, 255, 0.6),
         0 0 80px rgba(120, 80, 255, 0.3);
       pointer-events: none;
-      transition: color 0.1s;
     }
 
     /* ポップアニメーション */
@@ -168,7 +169,7 @@
       padding: 8px 16px;
       font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.05em;
       color: rgba(255, 255, 255, 0.5);
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid rgba(255, 255, 255, 0.12);
@@ -243,7 +244,7 @@
 <div id="chin"></div>
 
 <div id="tap-area">
-  <div id="label">TAP ANYWHERE</div>
+  <div id="label">どこでもタップ</div>
   <div id="bear"></div>
   <div id="count">0</div>
 </div>
@@ -254,8 +255,8 @@
   <span id="speed-result"></span>
 </div>
 
-<button id="reset-btn">RESET</button>
-<button id="speed-btn">⚡ SPEED</button>
+<button id="reset-btn">リセット</button>
+<button id="speed-btn">⚡ スピード</button>
 
 <div id="celebrate"></div>
 
@@ -310,25 +311,16 @@
   const bearEl        = document.getElementById('bear');
   const chinEl        = document.getElementById('chin');
 
-  // CSS変数でチン演出時間を設定
-  chinEl.style.setProperty('--chin-dur', CONFIG.CHIN_DURATION_MS + 'ms');
-
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 熊スプライト初期化
+  // 熊スプライト
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  // 表示サイズを CONFIG の縦横比に合わせてセット
-  function initBear() {
-    const w = bearEl.offsetWidth || 160;
-    const h = Math.round(w * CONFIG.FRAME_H / CONFIG.FRAME_W);
-    bearEl.style.height = h + 'px';
-    showBearFrame(0);
-  }
-
-  // 指定コマを描画（表示サイズを毎回 getBoundingClientRect で取得）
+  // 表示サイズを計算して background-size / position をセット
   function showBearFrame(frameIdx) {
-    const w = bearEl.offsetWidth || 160;
-    const h = bearEl.offsetHeight || Math.round(w * CONFIG.FRAME_H / CONFIG.FRAME_W);
+    // getBoundingClientRect は CSS aspect-ratio 適用後の実サイズを返す
+    const rect = bearEl.getBoundingClientRect();
+    const w = rect.width  > 0 ? rect.width  : 160;
+    const h = rect.height > 0 ? rect.height : Math.round(w * CONFIG.FRAME_H / CONFIG.FRAME_W);
     const col = frameIdx % CONFIG.COLS;
     const row = Math.floor(frameIdx / CONFIG.COLS);
     bearEl.style.backgroundSize     = `${CONFIG.COLS * w}px ${CONFIG.ROWS * h}px`;
@@ -336,11 +328,10 @@
   }
 
   // ── 熊アニメーション ──
-  let bearTimer   = null;
-  let bearFrame   = 0;
+  let bearTimer = null;
+  let bearFrame = 0;
 
   function playBear() {
-    // 連打：先頭から再スタート
     if (bearTimer !== null) clearTimeout(bearTimer);
     bearFrame = 0;
     stepBear();
@@ -348,35 +339,35 @@
 
   function stepBear() {
     showBearFrame(bearFrame);
-
-    // 打撃コマでチン発火
-    if (bearFrame === CONFIG.HIT_FRAME) {
-      showChin();
-    }
-
+    if (bearFrame === CONFIG.HIT_FRAME) showChin();
     bearFrame++;
     if (bearFrame < CONFIG.TOTAL_FRAMES) {
       bearTimer = setTimeout(stepBear, CONFIG.FRAME_MS);
     } else {
       bearTimer = null;
       bearFrame = 0;
-      showBearFrame(0); // アイドルポーズに戻す
+      showBearFrame(0);
     }
   }
 
-  // ── チン演出 ──
+  // ── チン演出 ──（JS で animation を直接設定し、var() 依存を排除）
   function showChin() {
-    chinEl.classList.remove('pop');
+    chinEl.style.animation = 'none';
     void chinEl.offsetWidth; // 強制リフロー
-    chinEl.classList.add('pop');
+    chinEl.style.animation = `chin-pop ${CONFIG.CHIN_DURATION_MS}ms ease-out forwards`;
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 初期化
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  window.addEventListener('load', initBear);
+  // ── 初期化（load 後に実行して offsetWidth を確実に取得） ──
+  function initBear() {
+    showBearFrame(0);
+  }
+  // DOMContentLoaded では間に合わないケースがあるので requestAnimationFrame で遅延
+  requestAnimationFrame(() => requestAnimationFrame(initBear));
   window.addEventListener('resize', initBear);
-  initBear();
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 初期描画
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   render();
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -399,7 +390,6 @@
       checkMilestone();
       render();
     }
-
     playBear();
     popAnimation();
     spawnRipple(x, y);
@@ -408,11 +398,11 @@
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 描画・演出ユーティリティ
+  // 描画・演出
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   function render() {
     countEl.textContent = count;
-    bestEl.textContent  = best > 0 ? `🏆 BEST  ${best}` : '';
+    bestEl.textContent  = best > 0 ? `🏆 ベスト ${best}` : '';
   }
 
   function popAnimation() {
@@ -482,7 +472,7 @@
     speedRemain = 10.0;
     speedStart = performance.now();
 
-    speedBtn.textContent = '✕ STOP';
+    speedBtn.textContent = '✕ やめる';
     speedBtn.classList.add('active');
     resetBtn.style.display = 'none';
     speedInfo.hidden = false;
@@ -490,7 +480,7 @@
     speedResultEl.textContent = '';
     countEl.textContent = '0';
     bestEl.textContent  = '';
-    document.getElementById('label').textContent = 'TAP AS FAST AS YOU CAN!';
+    document.getElementById('label').textContent = '全力で連打！';
 
     (function tick(now) {
       const elapsed = (now - speedStart) / 1000;
@@ -508,10 +498,10 @@
     cancelAnimationFrame(speedTickRAF);
     speedMode = false;
 
-    speedBtn.textContent = '⚡ SPEED';
+    speedBtn.textContent = '⚡ スピード';
     speedBtn.classList.remove('active');
     resetBtn.style.display = '';
-    document.getElementById('label').textContent = 'TAP ANYWHERE';
+    document.getElementById('label').textContent = 'どこでもタップ';
 
     if (!manual && speedCount > 0) {
       const speedBest = parseInt(localStorage.getItem('tap-speed-best') || '0', 10);
@@ -519,7 +509,7 @@
       if (isNew) localStorage.setItem('tap-speed-best', speedCount);
 
       speedTimerEl.textContent = '0.0';
-      speedResultEl.textContent = `${speedCount} taps${isNew ? ' 🏆NEW!' : ''}`;
+      speedResultEl.textContent = `${speedCount}回${isNew ? ' 🏆新記録！' : ''}`;
       speedInfo.hidden = false;
 
       setTimeout(() => {
