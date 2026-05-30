@@ -2,11 +2,424 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tap Counter</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    body {
+      background: #0f0f1a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    /* ── タップ領域（画面全体） ── */
+    #tap-area {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    /* ── ラベル ── */
+    #label {
+      font-size: clamp(14px, 3vw, 18px);
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      pointer-events: none;
+    }
+
+    /* ── カウント数字 ── */
+    #count {
+      font-size: clamp(100px, 30vw, 260px);
+      font-weight: 900;
+      line-height: 1;
+      color: #ffffff;
+      text-shadow:
+        0 0 40px rgba(120, 80, 255, 0.6),
+        0 0 80px rgba(120, 80, 255, 0.3);
+      pointer-events: none;
+      transition: color 0.1s;
+    }
+
+    /* ポップアニメーション */
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.18); }
+      70%  { transform: scale(0.95); }
+      100% { transform: scale(1); }
+    }
+    #count.pop {
+      animation: pop 0.25s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+    }
+
+    /* ── リセットボタン ── */
+    #reset-btn {
+      position: fixed;
+      bottom: max(36px, env(safe-area-inset-bottom, 20px) + 20px);
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 40px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 100px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+    }
+    #reset-btn:active {
+      background: rgba(255, 80, 80, 0.25);
+      color: #ff6b6b;
+      border-color: rgba(255, 80, 80, 0.4);
+      transform: translateX(-50%) scale(0.96);
+    }
+
+    /* ── リップルエフェクト ── */
+    .ripple {
+      position: fixed;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(160, 120, 255, 0.45) 0%, transparent 70%);
+      pointer-events: none;
+      transform: scale(0);
+      animation: ripple-out 0.5s ease-out forwards;
+    }
+    @keyframes ripple-out {
+      to {
+        transform: scale(1);
+        opacity: 0;
+      }
+    }
+
+    /* ── 連打スピード測定モード ── */
+    #speed-btn {
+      position: fixed;
+      top: max(24px, env(safe-area-inset-top, 0px) + 16px);
+      right: 20px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 100px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: background 0.15s, color 0.15s;
+    }
+    #speed-btn.active {
+      background: rgba(80, 200, 120, 0.2);
+      color: #5edd8a;
+      border-color: rgba(80, 200, 120, 0.35);
+    }
+
+    /* ── スピードモード表示 ── */
+    #speed-info {
+      position: fixed;
+      top: max(24px, env(safe-area-inset-top, 0px) + 16px);
+      left: 20px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.45);
+      line-height: 1.6;
+      pointer-events: none;
+    }
+    #speed-info span {
+      display: block;
+    }
+    #speed-timer {
+      font-size: 22px;
+      font-weight: 700;
+      color: #5edd8a;
+    }
+
+    /* ── ベスト表示 ── */
+    #best {
+      position: fixed;
+      top: max(24px, env(safe-area-inset-top, 0px) + 16px);
+      left: 20px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.3);
+      pointer-events: none;
+    }
+
+    /* ── 祝福オーバーレイ ── */
+    #celebrate {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(48px, 15vw, 100px);
+      pointer-events: none;
+      opacity: 0;
+    }
+    @keyframes celebrate-anim {
+      0%   { opacity: 0; transform: scale(0.5); }
+      30%  { opacity: 1; transform: scale(1.2); }
+      60%  { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.8); }
+    }
+    #celebrate.show {
+      animation: celebrate-anim 1s ease forwards;
+    }
+
+    /* ── 背景グラデーション（タップで色変化） ── */
+    #bg {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, #1a1030 0%, #0f0f1a 70%);
+      z-index: -1;
+      transition: background 0.3s;
+    }
+  </style>
 </head>
 <body>
-  <h1>Tap Counter</h1>
-  <p>Coming soon...</p>
+
+<div id="bg"></div>
+
+<div id="tap-area">
+  <div id="label">TAP ANYWHERE</div>
+  <div id="count">0</div>
+</div>
+
+<div id="best"></div>
+<div id="speed-info" hidden>
+  <span id="speed-timer">10.0</span>
+  <span id="speed-result"></span>
+</div>
+
+<button id="reset-btn">RESET</button>
+<button id="speed-btn">⚡ SPEED</button>
+
+<div id="celebrate"></div>
+
+<script>
+  // ── 状態 ──────────────────────────────────────────────
+  let count = parseInt(localStorage.getItem('tap-count') || '0', 10);
+  let best  = parseInt(localStorage.getItem('tap-best')  || '0', 10);
+
+  // スピードモード
+  let speedMode    = false;
+  let speedCount   = 0;
+  let speedTimer   = null;
+  let speedRemain  = 10.0;
+  let speedTickRAF = null;
+  let speedStart   = null;
+
+  // 祝福マイルストーン
+  const milestones = new Set([10, 50, 100, 500, 1000, 5000, 10000]);
+
+  // ── DOM ──────────────────────────────────────────────
+  const countEl    = document.getElementById('count');
+  const bestEl     = document.getElementById('best');
+  const resetBtn   = document.getElementById('reset-btn');
+  const speedBtn   = document.getElementById('speed-btn');
+  const speedInfo  = document.getElementById('speed-info');
+  const speedTimerEl = document.getElementById('speed-timer');
+  const speedResultEl = document.getElementById('speed-result');
+  const celebrateEl = document.getElementById('celebrate');
+  const bgEl       = document.getElementById('bg');
+
+  // ── 初期描画 ──────────────────────────────────────────
+  render();
+
+  // ── タップ処理 ────────────────────────────────────────
+  document.getElementById('tap-area').addEventListener('pointerdown', (e) => {
+    // リセットボタン・スピードボタン上は無視
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+
+    handleTap(e.clientX, e.clientY);
+  }, { passive: false });
+
+  function handleTap(x, y) {
+    if (speedMode) {
+      speedCount++;
+      countEl.textContent = speedCount;
+    } else {
+      count++;
+      localStorage.setItem('tap-count', count);
+      checkBest();
+      checkMilestone();
+      render();
+    }
+
+    popAnimation();
+    spawnRipple(x, y);
+    pulseBackground();
+    vibrate();
+  }
+
+  // ── 描画 ──────────────────────────────────────────────
+  function render() {
+    countEl.textContent = count;
+    bestEl.textContent  = best > 0 ? `🏆 BEST  ${best}` : '';
+  }
+
+  // ── ポップアニメーション ──────────────────────────────
+  function popAnimation() {
+    countEl.classList.remove('pop');
+    // 強制リフロー
+    void countEl.offsetWidth;
+    countEl.classList.add('pop');
+  }
+
+  // ── リップル ──────────────────────────────────────────
+  function spawnRipple(x, y) {
+    const size = Math.max(window.innerWidth, window.innerHeight) * 0.8;
+    const el = document.createElement('div');
+    el.className = 'ripple';
+    el.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${x - size / 2}px; top:${y - size / 2}px;
+    `;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+
+  // ── 背景パルス ────────────────────────────────────────
+  const hues = [260, 200, 320, 180, 40];
+  let hueIdx = 0;
+  function pulseBackground() {
+    const h = hues[hueIdx % hues.length];
+    hueIdx++;
+    bgEl.style.background =
+      `radial-gradient(ellipse at center, hsl(${h},60%,14%) 0%, #0f0f1a 70%)`;
+  }
+
+  // ── バイブレーション ──────────────────────────────────
+  function vibrate() {
+    if (navigator.vibrate) navigator.vibrate(12);
+  }
+
+  // ── ベスト更新 ────────────────────────────────────────
+  function checkBest() {
+    if (count > best) {
+      best = count;
+      localStorage.setItem('tap-best', best);
+    }
+  }
+
+  // ── マイルストーン祝福 ────────────────────────────────
+  function checkMilestone() {
+    if (milestones.has(count)) {
+      const emojis = ['🎉','✨','🔥','💥','🚀','⭐','🌟'];
+      celebrateEl.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      celebrateEl.classList.remove('show');
+      void celebrateEl.offsetWidth;
+      celebrateEl.classList.add('show');
+    }
+  }
+
+  // ── リセット ──────────────────────────────────────────
+  resetBtn.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+  });
+  resetBtn.addEventListener('click', () => {
+    if (speedMode) return;
+    count = 0;
+    localStorage.setItem('tap-count', 0);
+    render();
+  });
+
+  // ── スピードモード ────────────────────────────────────
+  speedBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  speedBtn.addEventListener('click', toggleSpeedMode);
+
+  function toggleSpeedMode() {
+    if (speedMode) {
+      stopSpeedMode(true);
+    } else {
+      startSpeedMode();
+    }
+  }
+
+  function startSpeedMode() {
+    speedMode   = true;
+    speedCount  = 0;
+    speedRemain = 10.0;
+    speedStart  = performance.now();
+
+    speedBtn.textContent = '✕ STOP';
+    speedBtn.classList.add('active');
+    resetBtn.style.display = 'none';
+    speedInfo.hidden = false;
+    speedTimerEl.textContent = '10.0';
+    speedResultEl.textContent = '';
+    countEl.textContent = '0';
+    bestEl.textContent  = '';
+    document.getElementById('label').textContent = 'TAP AS FAST AS YOU CAN!';
+
+    // RAF でタイマー更新
+    function tick(now) {
+      const elapsed = (now - speedStart) / 1000;
+      speedRemain = Math.max(0, 10 - elapsed);
+      speedTimerEl.textContent = speedRemain.toFixed(1);
+      if (speedRemain > 0) {
+        speedTickRAF = requestAnimationFrame(tick);
+      } else {
+        stopSpeedMode(false);
+      }
+    }
+    speedTickRAF = requestAnimationFrame(tick);
+  }
+
+  function stopSpeedMode(manual) {
+    cancelAnimationFrame(speedTickRAF);
+    speedMode = false;
+
+    speedBtn.textContent = '⚡ SPEED';
+    speedBtn.classList.remove('active');
+    resetBtn.style.display = '';
+    document.getElementById('label').textContent = 'TAP ANYWHERE';
+
+    if (!manual && speedCount > 0) {
+      // ベスト更新判定（スピードモード専用ベスト）
+      const speedBest = parseInt(localStorage.getItem('tap-speed-best') || '0', 10);
+      const isNew = speedCount > speedBest;
+      if (isNew) localStorage.setItem('tap-speed-best', speedCount);
+
+      speedTimerEl.textContent = '0.0';
+      speedResultEl.textContent =
+        `${speedCount} taps${isNew ? ' 🏆NEW!' : ''}`;
+      speedInfo.hidden = false;
+
+      // 3秒後に通常表示に戻す
+      setTimeout(() => {
+        speedInfo.hidden = true;
+        render();
+      }, 3000);
+    } else {
+      speedInfo.hidden = true;
+      render();
+    }
+  }
+</script>
 </body>
 </html>
