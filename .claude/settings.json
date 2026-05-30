@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "if": "Edit(docs/*)|Write(docs/*)",
+            "prompt": "docs/ 配下のファイルが変更されました。以下を確認・更新してください:\n1. specs/app-spec.md — 変更内容と仕様書の記述が一致しているか確認し、ずれがあれば更新する\n2. specs/harness.md — ハーネス構成（ディレクトリ・デプロイ・ツール設定）に変更があれば更新し、変更履歴テーブルに追記する\n変更がなければ「仕様書確認済み」と一言報告してください。",
+            "statusMessage": "specs/ との整合性を確認中..."
+          }
+        ]
+      }
+    ]
+  }
+}
