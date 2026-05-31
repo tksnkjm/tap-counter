@@ -88,7 +88,7 @@
     #bear {
       /* CSS aspect-ratio でheightを自動計算 → JS依存を排除 */
       width: clamp(120px, 34vw, 210px);
-      aspect-ratio: 352 / 384;
+      aspect-ratio: 364 / 360;
       background-image: url('assets/bear-sprite.png');
       background-repeat: no-repeat;
       background-size: 400% 200%; /* COLS×ROWS のフォールバック */
@@ -269,8 +269,8 @@
     COLS:         4,    // 列数
     ROWS:         2,    // 行数
     TOTAL_FRAMES: 8,    // 総コマ数（COLS × ROWS）
-    FRAME_W:      352,  // 元画像の1コマ幅（px）
-    FRAME_H:      384,  // 元画像の1コマ高さ（px）
+    FRAME_W:      364,  // 元画像の1コマ幅（px）
+    FRAME_H:      360,  // 元画像の1コマ高さ（px）
 
     // アニメーション
     FRAME_MS:     75,   // 1コマあたりの表示時間（ms）
